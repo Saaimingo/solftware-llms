@@ -1,0 +1,15 @@
+.venv/
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+*.py[cod]
+models/
+vendor/llama.cpp/
+artifacts/benchmarks/*.json
+artifacts/logs/
+.coverage
+htmlcov/
+dist/
+build/
+*.egg-info/
