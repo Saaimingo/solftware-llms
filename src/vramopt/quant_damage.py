@@ -180,23 +180,23 @@ def extract_gguf_tensor_as_f32(
     # Dequantize full tensor to f32 array
     # candidate.data is a memmap of quantized bytes; dequantize handles block layout
     dequantized = gguf.quants.dequantize(candidate.data, candidate.tensor_type)
-    # gguf returns shape matching GGUF logical shape; our F16 extractor transposes (shape[1], shape[0])
-    # Keep behavior compatible: return (shape[1], shape[0]) for 2 axes, sliced for 3D
+    # gguf returns shape reversed vs GGUF logical shape: logical [2048,512,256] -> dequantized (256,512,2048)
+    # Keep behavior compatible with F16 path which returns (cols, rows)
     if len(candidate.shape) == 3:
         if slice_index is None or not 0 <= slice_index < int(candidate.shape[2]):
             raise ValueError(f"slice_index must be in [0, {candidate.shape[2]}) for 3D tensor")
-        # dequantized shape is (dim0, dim1, dim2) in GGUF order; we want expert slice (dim1, dim0)
-        # GGUF stores as [2048,512,256] but dequantized numpy may be same order
-        # Extract expert e: dequantized[:, :, e] then transpose to (cols, rows)? Align with F16 path
+        # dequantized is (experts, dim1, dim0) = (256,512,2048)
         if dequantized.ndim == 3:
-            sliced = dequantized[:, :, int(slice_index)]
+            # expert axis is 0 as shown by (256,512,2048)
+            sliced = dequantized[int(slice_index), :, :]
         else:
-            # Fallback: gguf may have flattened; reshape if needed
             flat_shape = tuple(int(s) for s in candidate.shape)
-            reshaped = dequantized.reshape(flat_shape)
-            sliced = reshaped[:, :, int(slice_index)]
-        # Transpose to match F16 convention (cols, rows)
-        return np.asarray(sliced.T, dtype=np.float32)
+            # reverse order as gguf does: (256,512,2048)
+            rev_shape = tuple(reversed(flat_shape))
+            reshaped = dequantized.reshape(rev_shape)
+            sliced = reshaped[int(slice_index), :, :]
+        # sliced is already (512,2048) which matches F16 convention (cols, rows)
+        return np.asarray(sliced, dtype=np.float32)
     if len(candidate.shape) == 2:
         if slice_index is not None:
             raise ValueError("slice_index is only valid for rank-3 tensors")

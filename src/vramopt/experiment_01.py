@@ -83,7 +83,7 @@ def run_once(
         try:
             ref = extract_gguf_tensor_as_f32(reference_gguf, tensor_name, slice_index=slice_idx)
             q = extract_gguf_tensor_as_f32(quantized_gguf, tensor_name, slice_index=slice_idx)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - non-destructive sampling must not crash on one tensor
             print(f"  SKIP {label}: {exc}")
             continue
         print(f"  shapes {ref.shape}  ref mean {ref.mean():.4f} std {ref.std():.4f}  q mean {q.mean():.4f}")
@@ -146,7 +146,7 @@ def run_once(
                     s = compare_residuals(residuals[a], residuals[b])
                     sims[f"{a}__vs__{b}"] = s.__dict__
                     print(f"  {a} vs {b}: cosine {s.cosine_similarity:.3f} left {s.principal_left_similarity:.3f} spectrum {s.singular_spectrum_similarity:.3f}")
-                except Exception as exc:
+                except Exception as exc:  # noqa: BLE001
                     print(f"  similarity {a} vs {b} failed: {exc}")
         sim_path.write_text(json.dumps(sims, indent=2), encoding="utf-8")
         generated.append(sim_path)
